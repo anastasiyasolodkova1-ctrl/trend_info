@@ -1,0 +1,19 @@
+{
+  "name": "infopovod-telegram-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot по подбору инфоповодов для креаторов",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.16.3",
+    "googleapis": "^144.0.0",
+    "dotenv": "^16.4.5",
+    "axios": "^1.7.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}
