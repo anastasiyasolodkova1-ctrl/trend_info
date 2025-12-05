@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Telegraf, Scenes, session } = require('telegraf');
 const { google } = require('googleapis');
+const { GoogleAuth } = require('google-auth-library');
 const axios = require('axios');
 const fs = require('fs');
 
@@ -13,11 +14,14 @@ const PORT = process.env.PORT || 3000;
 // Инициализация бота
 const bot = new Telegraf(BOT_TOKEN);
 
-// Google Sheets API клиент
-const auth = new google.auth.GoogleAuth({
-  keyFile: './credentials.json',
+// ===== Google Sheets API клиент (только через env) =====
+const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+
+const auth = new GoogleAuth({
+  credentials,
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
+
 const sheets = google.sheets({ version: 'v4', auth });
 
 // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
