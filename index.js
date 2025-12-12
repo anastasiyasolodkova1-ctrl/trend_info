@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const { Telegraf, Scenes, session } = require('telegraf');
 const { google } = require('googleapis');
@@ -77,15 +78,31 @@ async function saveUserToSheets(userData) {
   }
 }
 
-// Вызов n8n webhook для отправки первого поста
-async function triggerFirstPost(chatId) {
+// Вызов n8n webhook для получения текста поста и отправка его с кнопкой "Ещё"
+async function triggerPostWithButton(chatId) {
   try {
-    await axios.post(N8N_WEBHOOK_URL, { chat_id: chatId });
-    console.log(`First post triggered for chat_id ${chatId}`);
+    console.log('Trigger n8n for chat', chatId);
+    const res = await axios.post(N8N_WEBHOOK_URL, { chat_id: chatId });
+    console.log('n8n response data:', res.data);
+
+    const text = typeof res.data === 'string' ? res.data : res.data?.text || 'Нет текста от n8n';
+
+    await bot.telegram.sendMessage(chatId, text, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [[{ text: 'Ещё', callback_data: 'more_trend' }]],
+      },
+    });
   } catch (error) {
-    console.error('Error triggering first post:', error.message);
+    console.error('Error in triggerPostWithButton:', error.response?.data || error.message);
+    await bot.telegram.sendMessage(
+      chatId,
+      '⚠️ Не удалось получить инфоповод. Попробуйте позже.'
+    );
   }
 }
+
+
 
 // ===== СЦЕНЫ ДИАЛОГА =====
 
@@ -164,7 +181,6 @@ countryStep.action('confirm', async (ctx) => {
   const chatId = ctx.chat.id;
   const { niche, keywords, country } = ctx.session;
 
-  // Сохраняем в Google Sheets
   const saved = await saveUserToSheets({
     userId,
     chatId,
@@ -180,8 +196,8 @@ countryStep.action('confirm', async (ctx) => {
       { parse_mode: 'Markdown' }
     );
 
-    // Вызываем n8n для первого поста
-    await triggerFirstPost(chatId);
+    // БЫЛО: await triggerFirstPost(chatId);
+    await triggerPostWithButton(chatId);
 
     await ctx.reply(
       '✅ Готово! \n\n' +
@@ -196,6 +212,7 @@ countryStep.action('confirm', async (ctx) => {
 
   ctx.scene.leave();
 });
+
 
 // Обработка "Исправить"
 countryStep.action('restart', async (ctx) => {
@@ -225,6 +242,25 @@ bot.command('help', (ctx) => {
     { parse_mode: 'Markdown' }
   );
 });
+
+// Кнопка "Ещё" — прислать следующий инфоповод
+bot.action('more_trend', async (ctx) => {
+  try {
+    await ctx.answerCbQuery(); // закрываем "часики" на кнопке
+    const chatId = ctx.chat.id;
+
+    // Сообщение ожидания
+    await ctx.reply(
+      'Ищу для вас новый инфоповод ⏳. Это может занять около минуты.'
+    );
+
+    // Запрос к n8n за следующим постом
+    await triggerPostWithButton(chatId);
+  } catch (e) {
+    console.error('Error on more_trend:', e);
+  }
+});
+
 
 // ===== ЗАПУСК БОТА =====
 
