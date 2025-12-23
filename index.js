@@ -261,26 +261,51 @@ bot.action('more_trend', async (ctx) => {
   }
 });
 
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+// Эндпоинт, который будет вызываться из n8n
+app.post('/send', async (req, res) => {
+  const { chat_id, text } = req.body;
+
+  if (!chat_id || !text) {
+    return res.status(400).json({ ok: false, error: 'chat_id or text missing' });
+  }
+
+  try {
+    await bot.telegram.sendMessage(chat_id, text, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [[{ text: 'Ещё', callback_data: 'more_trend' }]],
+      },
+    });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('Error in /send:', e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 
 // ===== ЗАПУСК БОТА =====
 
 if (process.env.NODE_ENV === 'production') {
-  // Webhook режим для Render
   const domain = process.env.RENDER_EXTERNAL_URL || `https://your-app.onrender.com`;
   bot.telegram.setWebhook(`${domain}/webhook`);
-  
-  const express = require('express');
-  const app = express();
+
+  // уже созданный app
   app.use(bot.webhookCallback('/webhook'));
-  
+
   app.listen(PORT, () => {
     console.log(`Bot is running on port ${PORT} with webhook`);
   });
 } else {
-  // Polling режим для локальной разработки
   bot.launch();
   console.log('Bot is running in polling mode');
 }
+
 
 // Graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
